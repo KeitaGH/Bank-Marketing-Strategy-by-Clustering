@@ -1,173 +1,107 @@
-# 
-
 import streamlit as st
-import numpy as np
+import pickle
 import pandas as pd
-import joblib
-from sklearn.decomposition import PCA
-from sklearn.metrics import silhouette_score
-import plotly.express as px
+import numpy as np
 
-# =========================
+# ========================
 # LOAD MODEL
-# =========================
-kmeans = joblib.load("kmeans_model.pkl")
-scaler = joblib.load("scaler.pkl")
-features = joblib.load("features.pkl")
-X_scaled = joblib.load("X_scaled.pkl")
-clusters_data = joblib.load("clusters.pkl")
+# ========================
+with open("preprocessor.pkl", "rb") as f:
+    preprocessor = pickle.load(f)
 
-# =========================
-# SIDEBAR
-# =========================
-st.sidebar.title("About App")
-st.sidebar.info("""
-This app uses Machine Learning (K-Means Clustering)
-to segment bank customers and recommend marketing strategies.
-Upgraded with profiling, explainability, and evaluation metrics.
-""")
+with open("scaler.pkl", "rb") as f:
+    scaler = pickle.load(f)
 
-st.title("Bank Customer Segmentation & Marketing Strategy System 🚀")
+with open("kmeans_model.pkl", "rb") as f:
+    kmeans = pickle.load(f)
 
-# =========================
-# CLUSTER LABEL
-# =========================
-cluster_names = {
-    0: "Low Engagement Customers",
-    1: "Potential Customers",
-    2: "At-Risk Customers",
-    3: "High Value Customers"
-}
+# ========================
+# TITLE
+# ========================
+st.title("🎯 Intelligent Marketing Strategy System")
 
-# =========================
-# CLUSTER PROFILING
-# =========================
-def get_cluster_profile(cluster):
-    df = pd.DataFrame(X_scaled, columns=features)
-    df["cluster"] = clusters_data
-    cluster_df = df[df["cluster"] == cluster]
+# ========================
+# USER INPUT
+# ========================
+st.subheader("📥 Input Customer Data")
 
-    return {
-        "avg_campaign": cluster_df["campaign"].mean(),
-        "avg_pdays": cluster_df["pdays"].mean(),
-        "avg_euribor": cluster_df["euribor3m"].mean()
-    }
+age = st.slider("Age", 18, 70, 30)
+job = st.selectbox("Job", ["admin.", "technician", "services", "management"])
+marital = st.selectbox("Marital", ["single", "married", "divorced"])
+education = st.selectbox("Education", ["basic.4y", "high.school", "university.degree"])
+housing = st.selectbox("Housing Loan", ["yes", "no"])
+loan = st.selectbox("Personal Loan", ["yes", "no"])
+default = st.selectbox("Default Credit", ["yes", "no"])
+campaign = st.slider("Campaign Contacts", 0, 10, 1)
+previous = st.slider("Previous Contacts", 0, 10, 0)
+poutcome = st.selectbox("Previous Outcome", ["success", "failure", "nonexistent"])
 
-# =========================
-# STRATEGY (DATA-DRIVEN)
-# =========================
-def marketing_strategy(profile):
-    if profile["avg_campaign"] < 2:
-        return "Awareness Strategy: Digital marketing, education content, email campaign"
+# ========================
+# CREATE DATAFRAME
+# ========================
+input_df = pd.DataFrame([{
+    'age': age,
+    'job': job,
+    'marital': marital,
+    'education': education,
+    'housing': housing,
+    'loan': loan,
+    'default': default,
+    'campaign': campaign,
+    'previous': previous,
+    'poutcome': poutcome
+}])
 
-    elif profile["avg_campaign"] < 5:
-        return "Conversion Strategy: Offer credit cards, loans, limited-time promotions"
+# ========================
+# PROCESS BUTTON
+# ========================
+if st.button("🔍 Analyze Customer"):
 
-    elif profile["avg_euribor"] > 3:
-        return "High Value Strategy: Investment, deposito, priority banking"
+    # preprocessing
+    X = preprocessor.transform(input_df)
+    X = X.toarray()
+    X_scaled = scaler.transform(X)
 
+    # clustering
+    cluster = kmeans.predict(X_scaled)[0]
+
+    # ========================
+    # SCORING SYSTEM
+    # ========================
+    housing_val = 1 if housing == "yes" else 0
+    loan_val = 1 if loan == "yes" else 0
+    default_val = 1 if default == "yes" else 0
+
+    # simple normalization (manual)
+    campaign_norm = campaign / 10
+    previous_norm = previous / 10
+
+    engagement_score = 0.6 * campaign_norm + 0.4 * previous_norm
+    risk_score = 0.4 * loan_val + 0.3 * housing_val + 0.3 * default_val
+
+    final_score = 0.6 * engagement_score + 0.4 * (1 - risk_score)
+
+    # ========================
+    # CATEGORY
+    # ========================
+    if final_score > 0.7:
+        category = "High Value"
+        strategy = "Offer Premium Products & Investment Services"
+    elif final_score > 0.4:
+        category = "Medium Value"
+        strategy = "Cross-Selling Financial Products"
     else:
-        return "Retention Strategy: Personalized offers and loyalty programs"
+        category = "Low Value"
+        strategy = "Promotional Campaign & Engagement Boost"
 
-# =========================
-# INPUT USER
-# =========================
-st.markdown("### 📊 Input Customer Data")
+    # ========================
+    # OUTPUT
+    # ========================
+    st.subheader("📊 Result")
 
-age = st.number_input("Age", 18, 100, 30)
-campaign = st.number_input("Number of contacts", 1, 50, 2)
-pdays = st.number_input("Days since last contact", 0, 999, 999)
-previous = st.number_input("Previous contacts", 0, 10, 0)
-emp_var_rate = st.number_input("Employment variation rate", -5.0, 5.0, 1.0)
-cons_price_idx = st.number_input("Consumer price index", 90.0, 100.0, 93.0)
-cons_conf_idx = st.number_input("Consumer confidence index", -60.0, 0.0, -40.0)
-euribor3m = st.number_input("Interest rate (Euribor)", 0.0, 6.0, 4.0)
-nr_employed = st.number_input("Number of employees", 4000.0, 6000.0, 5200.0)
+    st.write(f"Cluster: {cluster}")
+    st.write(f"Final Score: {round(final_score,3)}")
+    st.write(f"Category: {category}")
 
-# =========================
-# PREDICTION
-# =========================
-if st.button("Predict Strategy"):
-
-    input_data = pd.DataFrame([[ 
-        age, campaign, pdays, previous,
-        emp_var_rate, cons_price_idx, cons_conf_idx,
-        euribor3m, nr_employed
-    ]], columns=[
-        "age","campaign","pdays","previous",
-        "emp.var.rate","cons.price.idx","cons.conf.idx",
-        "euribor3m","nr.employed"
-    ])
-
-    input_full = pd.DataFrame(columns=features)
-    input_full.loc[0] = 0
-
-    for col in input_data.columns:
-        if col in input_full.columns:
-            input_full[col] = input_data[col]
-
-    input_scaled = scaler.transform(input_full)
-    cluster = kmeans.predict(input_scaled)[0]
-
-    profile = get_cluster_profile(cluster)
-    strategy = marketing_strategy(profile)
-
-    st.success(f"Cluster: {cluster} - {cluster_names[cluster]}")
-
-    st.info(f"""
-    📌 Customer Profile :
-    - Avg Campaign: {profile['avg_campaign']:.2f}
-    - Avg Last Contact: {profile['avg_pdays']:.2f}
-    - Avg Interest Rate: {profile['avg_euribor']:.2f}
-
-    🎯 Recommended Strategy:
-    {strategy}
-    """)
-
-    # =========================
-    # EVALUATION
-    # =========================
-    score = silhouette_score(X_scaled, clusters_data)
-    st.write(f"Model Silhouette Score: {score:.3f}")
-
-    # =========================
-    # VISUALIZATION
-    # =========================
-    pca = PCA(n_components=2)
-    X_pca = pca.fit_transform(X_scaled)
-
-    pca_df = pd.DataFrame({
-        "PC1": X_pca[:, 0],
-        "PC2": X_pca[:, 1],
-        "cluster": clusters_data
-    })
-
-    user_pca = pca.transform(input_scaled)
-
-    fig = px.scatter(
-        pca_df,
-        x="PC1",
-        y="PC2",
-        color="cluster",
-        title="Customer Segmentation (PCA)"
-    )
-
-    fig.add_scatter(
-        x=[user_pca[0][0]],
-        y=[user_pca[0][1]],
-        mode="markers+text",
-        marker=dict(size=15, symbol="star"),
-        name="User",
-        text=["YOU"],
-        textposition="top center"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-# =========================
-# CLUSTER SUMMARY
-# =========================
-st.markdown("### 📊 Cluster Summary")
-summary_df = pd.DataFrame(X_scaled, columns=features)
-summary_df["cluster"] = clusters_data
-st.dataframe(summary_df.groupby("cluster").mean())
+    st.subheader("🎯 Recommended Strategy")
+    st.success(strategy)

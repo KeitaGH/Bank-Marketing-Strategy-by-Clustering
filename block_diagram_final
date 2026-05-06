@@ -1,0 +1,29 @@
+digraph {
+	rankdir=TB size="10,12"
+	node [color=black fillcolor="#4F4F4F" fontcolor=white fontsize=16 height=1 shape=box style="rounded,filled" width=2.8]
+	edge [color=black penwidth=1.5]
+	A [label=Dataset]
+	B [label="Data Preprocessing"]
+	C [label="Feature Selection"]
+	D1 [label="K-Means"]
+	D2 [label=DBSCAN]
+	E [label="Cluster Analysis"]
+	F [label="Model Evaluation
+(Silhouette & DBI)"]
+	G [label="Marketing Recommendation"]
+	H [label="Final Model Selection"]
+	A -> B
+	B -> C
+	C -> D1
+	C -> D2
+	D1 -> E
+	D2 -> E
+	E -> F
+	F -> G
+	G -> H
+	{
+		rank=same
+		D1
+		D2
+	}
+}

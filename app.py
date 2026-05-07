@@ -19,6 +19,18 @@ with open("kmeans_model.pkl", "rb") as f:
 # TITLE
 # ========================
 st.title("🎯 Intelligent Marketing Strategy System")
+education_mapping = {
+    "Elementary School": "basic.4y",
+    "Middle School": "basic.6y",
+    "High School": "high.school",
+    "Professional Course": "professional.course",
+    "Bachelor Degree": "university.degree"
+}
+education_label = st.selectbox(
+    "Education Level",
+    list(education_mapping.keys())
+)
+
 
 # ========================
 # USER INPUT
@@ -28,7 +40,7 @@ st.subheader("📥 Input Customer Data")
 age = st.slider("Age", 18, 70, 30)
 job = st.selectbox("Job", ["admin.", "technician", "services", "management"])
 marital = st.selectbox("Marital", ["single", "married", "divorced"])
-education = st.selectbox("Education", ["basic.4y", "high.school", "university.degree"])
+education = education_mapping[education_label]
 housing = st.selectbox("Housing Loan", ["yes", "no"])
 loan = st.selectbox("Personal Loan", ["yes", "no"])
 default = st.selectbox("Default Credit", ["yes", "no"])
@@ -51,6 +63,7 @@ input_df = pd.DataFrame([{
     'previous': previous,
     'poutcome': poutcome
 }])
+
 
 # ========================
 # PROCESS BUTTON
